@@ -14,10 +14,11 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def fetch_latest_facebook_post():
     print(f"Đang cào bài viết mới từ nguồn: {SOURCE_PAGE_URL}...")
-    url = f"https://api.apify.com/v2/acts/apify~facebook-page-scraper/runs?token={APIFY_API_TOKEN}"
+    # Đã sửa lại đúng tên Actor chính thức trên Apify Store: apify/facebook-posts-scraper
+    url = f"https://api.apify.com/v2/acts/apify~facebook-posts-scraper/runs?token={APIFY_API_TOKEN}"
     payload = {
         "startUrls": [{"url": SOURCE_PAGE_URL}],
-        "maxPosts": 1
+        "resultsLimit": 1
     }
     response = requests.post(url, json=payload)
     if response.status_code != 201:
@@ -34,7 +35,8 @@ def fetch_latest_facebook_post():
     posts = items_res.json()
     
     if posts and len(posts) > 0:
-        return posts[0].get("text", "")
+        # Lấy nội dung bài viết từ trường 'text' hoặc 'caption' tùy cấu trúc dữ liệu trả về
+        return posts[0].get("text", "") or posts[0].get("caption", "")
     return None
 
 def rewrite_content(original_text):
