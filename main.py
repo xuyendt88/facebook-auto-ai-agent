@@ -2,19 +2,15 @@ import os
 import time
 import requests
 import urllib.parse
-from openai import OpenAI
+from google import genai
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
 FACEBOOK_ACCESS_TOKEN = os.getenv("FACEBOOK_ACCESS_TOKEN")
 SOURCE_PAGE_URL = "https://www.facebook.com/IEEvietnam"
 
-# Khởi tạo client kết nối với Groq (Nhanh, ổn định, miễn phí)
-client = OpenAI(
-    api_key=GROQ_API_KEY,
-    base_url="https://api.groq.com/openai/v1"
-)
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 def fetch_latest_facebook_post():
     print(f"Đang cào bài viết mới từ nguồn: {SOURCE_PAGE_URL}...")
@@ -41,7 +37,7 @@ def fetch_latest_facebook_post():
     return None
 
 def rewrite_content(original_text):
-    print("Đang dùng Llama 3 (Groq) viết lại văn phong mới...")
+    print("Đang dùng Google Gemini viết lại văn phong mới...")
     
     iee_footer = """----------------------------------
 IEE – Tư vấn du học Toàn quốc
@@ -49,37 +45,28 @@ IEE – Tư vấn du học Toàn quốc
 Hotline: 0969.159.131
 Đăng ký tư vấn Miễn phí: https://forms.gle/MuTGJFbU99rNVbyw6"""
 
-    response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",  # Model cực kỳ ổn định của Groq
-        messages=[
-            {
-                "role": "system",
-                "content": f"Bạn là chuyên gia truyền thông và sáng tạo nội dung cho trung tâm tư vấn du học IEE. Hãy đọc bài viết gốc, giữ nguyên các thông tin chính thống, số liệu hoặc kiến thức hữu ích về du học, nhưng hãy viết lại hoàn toàn văn phong sao cho mới mẻ, thu hút và cuốn hút hơn. Tuyệt đối loại bỏ mọi số điện thoại hoặc thông tin liên hệ cũ của bài gốc (nếu có). Ở PHẦN CUỐI CÙNG của bài viết, bạn BẮT BUỘC phải giữ nguyên và chèn chính xác đoạn thông tin sau:\n\n{iee_footer}"
-            },
-            {
-                "role": "user",
-                "content": original_text
-            }
-        ]
-    )
-    return response.choices[0].message.content
+    system_instruction = f"Bạn là chuyên gia truyền thông và sáng tạo nội dung cho trung tâm tư vấn du học IEE. Hãy đọc bài viết gốc, giữ nguyên các thông tin chính thống, số liệu hoặc kiến thức hữu ích về du học, nhưng hãy viết lại hoàn toàn văn phong sao cho mới mẻ, thu hút và cuốn hút hơn. Tuyệt đối loại bỏ mọi số điện thoại hoặc thông tin liên hệ cũ của bài gốc (nếu có). Ở PHẦN CUỐI CÙNG của bài viết, bạn BẮT BUỘC phải giữ nguyên và chèn chính xác đoạn thông tin sau:\n\n{iee_footer}"
+
+    # Sử dụng model gemini-1.5-flash với cơ chế chờ nếu gặp quá tải tạm thời
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=f"{system_instruction}\n\nBài viết gốc:\n{original_text}"
+            )
+            return response.text
+        except Exception as e:
+            print(f"Lần thử {attempt + 1} gặp lỗi: {e}. Đang chờ 5 giây để gọi lại...")
+            time.sleep(5)
+    raise Exception("Không thể gọi Gemini sau 3 lần thử.")
 
 def generate_ai_image(post_content):
-    print("Đang tạo câu lệnh (prompt) vẽ ảnh...")
-    prompt_res = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[
-            {
-                "role": "system",
-                "content": "Dựa vào nội dung bài viết dưới đây, hãy viết một câu lệnh ngắn gọn (prompt) bằng tiếng Anh để tạo ra một bức ảnh minh họa chuyên nghiệp, phong cách chụp ảnh chân thực (photorealistic), phù hợp cho bài đăng tư vấn du học. Chỉ trả về câu lệnh bằng tiếng Anh, không kèm giải thích."
-            },
-            {
-                "role": "user",
-                "content": post_content
-            }
-        ]
+    print("Đang tạo câu lệnh (prompt) vẽ ảnh bằng Gemini...")
+    prompt_res = client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents="Dựa vào nội dung bài viết dưới đây, hãy viết một câu lệnh ngắn gọn (prompt) bằng tiếng Англійська (English) để tạo ra một bức ảnh minh họa chuyên nghiệp, phong cách chụp ảnh chân thực (photorealistic), phù hợp cho bài đăng tư vấn du học. Chỉ trả về câu lệnh bằng tiếng Anh, không kèm giải thích.\n\n" + post_content
     )
-    image_prompt = prompt_res.choices[0].message.content.strip()
+    image_prompt = prompt_res.text.strip()
     print(f"Prompt tạo ảnh: {image_prompt}")
 
     encoded_prompt = urllib.parse.quote(image_prompt)
