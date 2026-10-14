@@ -48,7 +48,7 @@ Hotline: 0969.159.131
     system_instruction = f"Bạn là chuyên gia truyền thông và sáng tạo nội dung cho trung tâm tư vấn du học IEE. Hãy đọc bài viết gốc, giữ nguyên các thông tin chính thống, số liệu hoặc kiến thức hữu ích về du học, nhưng hãy viết lại hoàn toàn văn phong sao cho mới mẻ, thu hút và cuốn hút hơn. Tuyệt đối loại bỏ mọi số điện thoại hoặc thông tin liên hệ cũ của bài gốc (nếu có). Ở PHẦN CUỐI CÙNG của bài viết, bạn BẮT BUỘC phải giữ nguyên và chèn chính xác đoạn thông tin sau:\n\n{iee_footer}"
 
     response = client.models.generate_content(
-        model='gemini-3.6-flash',  # Sử dụng model gemini-3.6-flash ổn định
+        model='gemini-3.5-flash',  # Sử dụng model gemini-3.5-flash ổn định
         contents=f"{system_instruction}\n\nBài viết gốc:\n{original_text}"
     )
     return response.text
@@ -56,7 +56,7 @@ Hotline: 0969.159.131
 def generate_ai_image(post_content):
     print("Đang tạo câu lệnh (prompt) vẽ ảnh bằng Gemini...")
     prompt_res = client.models.generate_content(
-        model='gemini-3.6-flash',  # Sử dụng model gemini-3.6-flash ổn định
+        model='gemini-3.5-flash',  # Sử dụng model gemini-3.5-flash ổn định
         contents="Dựa vào nội dung bài viết dưới đây, hãy viết một câu lệnh ngắn gọn (prompt) bằng tiếng Anh để tạo ra một bức ảnh minh họa chuyên nghiệp, phong cách chụp ảnh chân thực (photorealistic), phù hợp cho bài đăng tư vấn du học. Chỉ trả về câu lệnh bằng tiếng Anh, không kèm giải thích.\n\n" + post_content
     )
     image_prompt = prompt_res.text.strip()
