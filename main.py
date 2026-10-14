@@ -50,7 +50,7 @@ Hotline: 0969.159.131
 Đăng ký tư vấn Miễn phí: https://forms.gle/MuTGJFbU99rNVbyw6"""
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",  # Model miễn phí cực nhanh của Groq
+        model="llama3-8b-8192",  # Model miễn phí cực nhanh của Groq
         messages=[
             {
                 "role": "system",
@@ -67,7 +67,7 @@ Hotline: 0969.159.131
 def generate_ai_image(post_content):
     print("Đang tạo câu lệnh (prompt) vẽ ảnh bằng Llama 3...")
     prompt_res = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama3-8b-8192",
         messages=[
             {
                 "role": "system",
