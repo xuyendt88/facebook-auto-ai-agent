@@ -1,20 +1,23 @@
 import os
 import time
 import requests
-from openai import OpenAI
+import urllib.parse
+from openai import OpenAI  # Groq dùng chung thư viện OpenAI
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # Thay thế cho OpenAI Key
 FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
 FACEBOOK_ACCESS_TOKEN = os.getenv("FACEBOOK_ACCESS_TOKEN")
-# Cố định nguồn cào chính xác từ Page IEEvietnam
 SOURCE_PAGE_URL = "https://www.facebook.com/IEEvietnam"
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Cấu hình client sang Groq (Miễn phí & Tốc độ cao)
+client = OpenAI(
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1"
+)
 
 def fetch_latest_facebook_post():
     print(f"Đang cào bài viết mới từ nguồn: {SOURCE_PAGE_URL}...")
-    # Đã sửa lại đúng tên Actor chính thức trên Apify Store: apify/facebook-posts-scraper
     url = f"https://api.apify.com/v2/acts/apify~facebook-posts-scraper/runs?token={APIFY_API_TOKEN}"
     payload = {
         "startUrls": [{"url": SOURCE_PAGE_URL}],
@@ -27,7 +30,6 @@ def fetch_latest_facebook_post():
     run_data = response.json()["data"]
     dataset_id = run_data["defaultDatasetId"]
     
-    # Chờ Apify hoàn tất quá trình cào dữ liệu
     time.sleep(30)
     
     dataset_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_API_TOKEN}"
@@ -35,12 +37,11 @@ def fetch_latest_facebook_post():
     posts = items_res.json()
     
     if posts and len(posts) > 0:
-        # Lấy nội dung bài viết từ trường 'text' hoặc 'caption' tùy cấu trúc dữ liệu trả về
         return posts[0].get("text", "") or posts[0].get("caption", "")
     return None
 
 def rewrite_content(original_text):
-    print("Đang dùng AI nhào lặn, viết lại văn phong mới và chuẩn hóa thông tin liên hệ...")
+    print("Đang dùng Llama 3 (Groq Free) viết lại văn phong mới...")
     
     iee_footer = """----------------------------------
 IEE – Tư vấn du học Toàn quốc
@@ -49,7 +50,7 @@ Hotline: 0969.159.131
 Đăng ký tư vấn Miễn phí: https://forms.gle/MuTGJFbU99rNVbyw6"""
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="llama-3.1-8b-instant",  # Model miễn phí cực nhanh của Groq
         messages=[
             {
                 "role": "system",
@@ -64,13 +65,13 @@ Hotline: 0969.159.131
     return response.choices[0].message.content
 
 def generate_ai_image(post_content):
-    print("Đang yêu cầu AI sáng tạo câu lệnh (prompt) để vẽ ảnh minh họa mới...")
+    print("Đang tạo câu lệnh (prompt) vẽ ảnh bằng Llama 3...")
     prompt_res = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="llama-3.1-8b-instant",
         messages=[
             {
                 "role": "system",
-                "content": "Dựa vào nội dung bài viết dưới đây, hãy viết một câu lệnh (prompt) bằng tiếng Anh để tạo ra một bức ảnh minh họa chuyên nghiệp, có người thật, phong cách chụp ảnh chân thực (photorealistic), phù hợp cho bài đăng tư vấn du học. Chỉ trả về câu lệnh bằng tiếng Anh, không kèm giải thích."
+                "content": "Dựa vào nội dung bài viết dưới đây, hãy viết một câu lệnh ngắn gọn (prompt) bằng tiếng Anh để tạo ra một bức ảnh minh họa chuyên nghiệp, phong cách chụp ảnh chân thực (photorealistic), phù hợp cho bài đăng tư vấn du học. Chỉ trả về câu lệnh bằng tiếng Anh, không kèm giải thích."
             },
             {
                 "role": "user",
@@ -78,22 +79,17 @@ def generate_ai_image(post_content):
             }
         ]
     )
-    image_prompt = prompt_res.choices[0].message.content
+    image_prompt = prompt_res.choices[0].message.content.strip()
     print(f"Prompt tạo ảnh: {image_prompt}")
 
-    image_response = client.images.generate(
-        model="dall-e-3",
-        prompt=image_prompt,
-        size="1024x1024",
-        quality="standard",
-        n=1,
-    )
-    image_url = image_response.data[0].url
-    print(f"Tạo ảnh thành công: {image_url}")
+    # Sử dụng Pollinations.ai miễn phí 100%, không cần API key
+    encoded_prompt = urllib.parse.quote(image_prompt)
+    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
+    print(f"Tạo ảnh miễn phí thành công: {image_url}")
     return image_url
 
 def post_to_facebook(message, image_url):
-    print("Đang đăng bài kèm ảnh mới lên Fanpage của bạn...")
+    print("Đang đăng bài kèm ảnh lên Fanpage...")
     url = f"https://graph.facebook.com/v18.0/{FACEBOOK_PAGE_ID}/photos"
     payload = {
         "url": image_url,
@@ -102,7 +98,7 @@ def post_to_facebook(message, image_url):
     }
     response = requests.post(url, data=payload)
     if response.status_code == 200:
-        print("Đăng bài kèm ảnh AI thành công lên Fanpage!")
+        print("Đăng bài thành công lên Fanpage!")
     else:
         print(f"Lỗi đăng bài Facebook: {response.text}")
 
