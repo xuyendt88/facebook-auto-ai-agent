@@ -5,12 +5,11 @@ import urllib.parse
 from google import genai
 
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # Sử dụng Gemini Key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID")
 FACEBOOK_ACCESS_TOKEN = os.getenv("FACEBOOK_ACCESS_TOKEN")
 SOURCE_PAGE_URL = "https://www.facebook.com/IEEvietnam"
 
-# Khởi tạo client Gemini chính thức
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 def fetch_latest_facebook_post():
@@ -49,7 +48,7 @@ Hotline: 0969.159.131
     system_instruction = f"Bạn là chuyên gia truyền thông và sáng tạo nội dung cho trung tâm tư vấn du học IEE. Hãy đọc bài viết gốc, giữ nguyên các thông tin chính thống, số liệu hoặc kiến thức hữu ích về du học, nhưng hãy viết lại hoàn toàn văn phong sao cho mới mẻ, thu hút và cuốn hút hơn. Tuyệt đối loại bỏ mọi số điện thoại hoặc thông tin liên hệ cũ của bài gốc (nếu có). Ở PHẦN CUỐI CÙNG của bài viết, bạn BẮT BUỘC phải giữ nguyên và chèn chính xác đoạn thông tin sau:\n\n{iee_footer}"
 
     response = client.models.generate_content(
-        model='gemini-2.5-flash',  # Model nhanh và thông minh miễn phí của Gemini
+        model='gemini-1.5-flash',  # Sử dụng model gemini-1.5-flash ổn định
         contents=f"{system_instruction}\n\nBài viết gốc:\n{original_text}"
     )
     return response.text
@@ -57,13 +56,12 @@ Hotline: 0969.159.131
 def generate_ai_image(post_content):
     print("Đang tạo câu lệnh (prompt) vẽ ảnh bằng Gemini...")
     prompt_res = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-1.5-flash',  # Sử dụng model gemini-1.5-flash ổn định
         contents="Dựa vào nội dung bài viết dưới đây, hãy viết một câu lệnh ngắn gọn (prompt) bằng tiếng Anh để tạo ra một bức ảnh minh họa chuyên nghiệp, phong cách chụp ảnh chân thực (photorealistic), phù hợp cho bài đăng tư vấn du học. Chỉ trả về câu lệnh bằng tiếng Anh, không kèm giải thích.\n\n" + post_content
     )
     image_prompt = prompt_res.text.strip()
     print(f"Prompt tạo ảnh: {image_prompt}")
 
-    # Sử dụng Pollinations.ai miễn phí 100%, không cần API key
     encoded_prompt = urllib.parse.quote(image_prompt)
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1024&height=1024&nologo=true"
     print(f"Tạo ảnh miễn phí thành công: {image_url}")
